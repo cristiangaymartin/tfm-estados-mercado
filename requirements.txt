@@ -1,12 +1,7 @@
-%%writefile /content/drive/MyDrive/TFM/requirements.txt
+streamlit
 pandas
 numpy
 yfinance
 hmmlearn
 scikit-learn
-xgboost
 matplotlib
-seaborn
-ruptures
-streamlit
-snowflake-connector-python 
