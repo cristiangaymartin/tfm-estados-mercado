@@ -16,12 +16,16 @@ st.markdown("Detección de regímenes de mercado mediante aprendizaje no supervi
 
 # --- Universo de mercados disponibles ---
 TICKERS = {
-    "S&P 500 (EE.UU.)":     "^GSPC",
-    "IBEX 35 (España)":     "^IBEX",
-    "STOXX 600 (Europa)":   "^STOXX",
+    "S&P 500 (EE.UU.)":       "^GSPC",
+    "IBEX 35 (España)":       "^IBEX",
+    "STOXX 600 (Europa)":     "^STOXX",
     "FTSE 100 (Reino Unido)": "^FTSE",
-    "Nikkei 225 (Japón)":   "^N225",
-    "Shanghái (China)":     "000001.SS",
+    "Nikkei 225 (Japón)":     "^N225",
+    "Shanghái (China)":       "000001.SS",
+    "Nifty 50 (India)":       "^NSEI",
+    "KOSPI (Corea del Sur)":  "^KS11",
+    "TAIEX (Taiwán)":         "^TWII",
+    "Jakarta (Indonesia)":    "^JKSE",
 }
 
 COLORES = {"Calma alcista": "#2ca02c", "Normal": "#ffd92f",
