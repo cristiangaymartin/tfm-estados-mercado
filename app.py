@@ -3,9 +3,10 @@ App de exploración de regímenes de mercado — TFM.
 Explorador interactivo: el usuario elige un mercado y ve sus regímenes
 detectados por el HMM sobre la serie histórica.
 """
+from matplotlib.patches import Patch
 import streamlit as st
 import matplotlib.pyplot as plt
-from matplotlib.patches import Patch
+import matplotlib.dates as mdates
 import tfm  
 
 # --- Configuración de la página ---
@@ -55,6 +56,10 @@ for regimen, color in COLORES.items():
                     where=mask, color=color, alpha=0.25, zorder=1)
 ax.set_yscale("log")
 ax.set_ylim(datos["Close"].min()*0.9, datos["Close"].max()*1.1)
+ax.set_xlim(datos.index.min(), datos.index.max())          # elimina el espacio en blanco
+ax.xaxis.set_major_locator(mdates.YearLocator(1))          # marca cada año
+ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
+plt.setp(ax.get_xticklabels(), rotation=45, ha="right", fontsize=8)
 ax.set_title(f"{nombre_mercado}: regímenes detectados por el HMM")
 ax.set_ylabel("Precio de cierre (escala log)")
 ax.legend(handles=[Patch(facecolor=c, alpha=0.5, label=r) for r, c in COLORES.items()],
