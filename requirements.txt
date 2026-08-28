@@ -5,3 +5,5 @@ yfinance
 hmmlearn
 scikit-learn
 matplotlib
+xgboost
+joblib
