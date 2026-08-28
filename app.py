@@ -138,35 +138,48 @@ if ticker == "^GSPC":
 
     modelo = cargar_modelo()
 
-    # Construimos las features sobre los datos ya analizados (misma función que en el entrenamiento)
-    datos_feat = tfm.construir_features(datos)
-    datos_feat = datos_feat.dropna(subset=tfm.FEATURES)
-
-    # Predecimos la probabilidad de estrés para toda la serie
+    # Features (misma función que en el entrenamiento) y predicción
+    datos_feat = tfm.construir_features(datos).dropna(subset=tfm.FEATURES)
     datos_feat["prob_estres"] = modelo.predict_proba(datos_feat[tfm.FEATURES])[:, 1]
 
-    # La señal más reciente
-    ultima = datos_feat.iloc[-1]
-    prob_hoy = ultima["prob_estres"]
-    st.metric("Probabilidad de estrés (última fecha disponible)",
-              f"{prob_hoy*100:.0f}%")
+    # Número reciente + semáforo
+    prob = datos_feat.iloc[-1]["prob_estres"]
+    st.metric("Probabilidad de estrés (última fecha disponible)", f"{prob*100:.0f}%")
+    if prob < 0.33:
+        st.success("Riesgo de estrés bajo en el horizonte de 20 días.")
+    elif prob < 0.66:
+        st.warning("Riesgo de estrés moderado en el horizonte de 20 días.")
+    else:
+        st.error("Riesgo de estrés elevado en el horizonte de 20 días.")
 
-    # Gráfico de la probabilidad a lo largo del tiempo
+    # Suavizado y últimos años para el gráfico
+    datos_feat["prob_suave"] = datos_feat["prob_estres"].rolling(20).mean()
+    anios_mostrar = 3
+    fecha_desde = datos_feat.index.max() - pd.DateOffset(years=anios_mostrar)
+    reciente = datos_feat[datos_feat.index >= fecha_desde]
+
     fig2, ax2 = plt.subplots(figsize=(14, 3.5))
-    ax2.plot(datos_feat.index, datos_feat["prob_estres"], color="crimson", linewidth=0.9)
+    ax2.plot(reciente.index, reciente["prob_estres"], color="crimson",
+             linewidth=0.5, alpha=0.3, label="Diaria")
+    ax2.plot(reciente.index, reciente["prob_suave"], color="crimson",
+             linewidth=1.8, label="Media móvil 20 días")
     ax2.axhline(0.5, color="gray", linestyle="--", linewidth=0.8, label="Umbral 50%")
-    ax2.fill_between(datos_feat.index, 0, datos_feat["prob_estres"],
-                     color="crimson", alpha=0.15)
+    ax2.fill_between(reciente.index, 0, reciente["prob_suave"], color="crimson", alpha=0.12)
     ax2.set_ylim(0, 1)
-    ax2.set_xlim(datos_feat.index.min(), datos_feat.index.max())
+    ax2.set_xlim(reciente.index.min(), reciente.index.max())
     ax2.set_ylabel("Prob. de estrés")
-    ax2.set_title("Probabilidad de estrés futuro estimada por el modelo")
-    ax2.legend(loc="upper left")
+    ax2.set_title(f"Probabilidad de estrés — últimos {anios_mostrar} años")
+    ax2.legend(loc="upper left", fontsize=8)
     ax2.grid(True, alpha=0.3)
     st.pyplot(fig2)
 
     st.caption("Modelo XGBoost entrenado con datos del S&P 500 hasta 2019 "
                "(ver notebook 05). La probabilidad se calcula sobre features "
                "que solo usan información pasada.")
+else:
+    st.info("El predictor de estrés está disponible para el S&P 500, el mercado de "
+            "referencia del estudio. Extender el modelo a otros mercados requeriría "
+            "entrenar un modelo específico para cada uno, planteado como línea de "
+            "trabajo futuro.")
 
 st.caption("TFM · Detección de regímenes con HMM · Datos: Yahoo Finance")
