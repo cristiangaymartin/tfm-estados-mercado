@@ -78,10 +78,13 @@ for regimen, color in COLORES.items():
 # --- Eventos históricos (filtrados por ámbito del mercado y por rango de fechas) ---
 if mostrar_eventos:
     inicio_datos, fin_datos = datos.index.min(), datos.index.max()
+    # Fin efectivo del evento: su fin, o su inicio si es puntual (línea)
+    fin_efectivo = CRONO["fin"].fillna(CRONO["inicio"])
+    # Un evento se muestra si SE SOLAPA con el rango de datos (no solo si empieza dentro)
     eventos_mostrar = CRONO[
         (CRONO["ambito"].isin(config["ambitos"])) &
-        (CRONO["inicio"] >= inicio_datos) &
-        (CRONO["inicio"] <= fin_datos)
+        (fin_efectivo >= inicio_datos) &        # el evento termina después de que empiecen los datos
+        (CRONO["inicio"] <= fin_datos)          # y empieza antes de que terminen
     ]
     caja = dict(boxstyle="round,pad=0.2", facecolor="white", edgecolor="none", alpha=0.8)
     ymax = datos["Close"].max()
@@ -92,10 +95,13 @@ if mostrar_eventos:
                     fontsize=7, va="top", ha="left", color="black", zorder=6, bbox=caja)
         else:
             fin_ev = ev["fin"] if pd.notna(ev["fin"]) else ev["inicio"]
-            ax.axvspan(ev["inicio"], fin_ev, color="dimgray", alpha=0.18, zorder=2)
-            ax.axvline(ev["inicio"], color="dimgray", linestyle=":", linewidth=1, alpha=0.7, zorder=3)
-            ax.axvline(fin_ev, color="dimgray", linestyle=":", linewidth=1, alpha=0.7, zorder=3)
-            centro = ev["inicio"] + (fin_ev - ev["inicio"]) / 2
+            # Recortamos la banda al rango de datos visible
+            ini_banda = max(ev["inicio"], inicio_datos)
+            fin_banda = min(fin_ev, fin_datos)
+            ax.axvspan(ini_banda, fin_banda, color="dimgray", alpha=0.18, zorder=2)
+            ax.axvline(ini_banda, color="dimgray", linestyle=":", linewidth=1, alpha=0.7, zorder=3)
+            ax.axvline(fin_banda, color="dimgray", linestyle=":", linewidth=1, alpha=0.7, zorder=3)
+            centro = ini_banda + (fin_banda - ini_banda) / 2
             ax.text(centro, ymax*0.96, ev["nombre"], rotation=0, ha="center", va="top",
                     fontsize=7, color="black", zorder=6, bbox=caja)
 
