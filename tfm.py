@@ -1,16 +1,24 @@
 """
 Módulo de funciones del TFM 'Estados del mercado a la luz de la historia'.
-Contiene las funciones reutilizables de carga de datos, detección de regímenes
-y visualización de overlays históricos.
+Funciones reutilizables de carga de datos, detección de regímenes,
+construcción de features del predictor y visualización de overlays.
 """
+from hmmlearn import hmm
+from sklearn.preprocessing import StandardScaler
+from matplotlib.patches import Patch
 import numpy as np
 import pandas as pd
 import yfinance as yf
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-from matplotlib.patches import Patch
-from hmmlearn import hmm
-from sklearn.preprocessing import StandardScaler
+
+# --- Constantes del predictor de estrés ---
+FEATURES = ["ret_5d", "ret_20d", "vol_5d", "vol_21d", "vol_cambio",
+            "dist_media50", "regimen_actual"]
+HORIZONTE = 20
+REGIMENES_ESTRES = ["Corrección", "Crisis"]
+NIVEL_REGIMEN = {"Calma alcista": 0, "Normal": 1, "Corrección": 2, "Crisis": 3}
+
 
 def cargar_mercado(ticker, start="1990-01-01"):
     """
@@ -46,13 +54,35 @@ def detectar_regimenes(df, n_estados=4, random_state=42):
     return datos, modelo
 
 
+def construir_features(datos_reg):
+    """
+    Construye las features backward-looking del predictor de estrés.
+    'datos_reg' debe tener columnas 'ret_log', 'vol_21d', 'Close' y 'regimen'
+    (la salida de detectar_regimenes con el precio añadido).
+    Devuelve el dataframe con las columnas de features añadidas.
+    """
+    df = datos_reg.copy()
+    # Familia 1: momentum (rendimiento acumulado reciente)
+    df["ret_5d"]  = df["ret_log"].rolling(5).sum()
+    df["ret_20d"] = df["ret_log"].rolling(20).sum()
+    # Familia 2: volatilidad muy reciente
+    df["vol_5d"]  = df["ret_log"].rolling(5).std()
+    # Familia 3: tendencia de la volatilidad (¿se acelera la agitación?)
+    df["vol_cambio"] = df["vol_21d"] - df["vol_21d"].shift(10)
+    # Familia 4: distancia a la media móvil de 50 días
+    df["media_50"] = df["Close"].rolling(50).mean()
+    df["dist_media50"] = (df["Close"] - df["media_50"]) / df["media_50"]
+    # Familia 5: el régimen actual del HMM, como nivel numérico
+    df["regimen_actual"] = df["regimen"].map(NIVEL_REGIMEN)
+    return df
+
+
 def dibujar_overlay(datos, eventos, titulo, colores=None, guardar_en=None):
     """
     Dibuja un overlay de regímenes con acontecimientos históricos anotados.
     'datos' debe tener columnas 'Close' y 'regimen'. 'eventos' es un DataFrame
     con columnas nombre, tipo ('linea'/'banda'), inicio, fin.
     """
-    
     if colores is None:
         colores = {"Calma alcista": "#2ca02c", "Normal": "#ffd92f",
                    "Corrección": "#ff7f0e", "Crisis": "#d62728"}
