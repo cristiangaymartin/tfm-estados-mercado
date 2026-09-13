@@ -62,17 +62,12 @@ def construir_features(datos_reg):
     Devuelve el dataframe con las columnas de features añadidas.
     """
     df = datos_reg.copy()
-    # Familia 1: momentum (rendimiento acumulado reciente)
     df["ret_5d"]  = df["ret_log"].rolling(5).sum()
     df["ret_20d"] = df["ret_log"].rolling(20).sum()
-    # Familia 2: volatilidad muy reciente
     df["vol_5d"]  = df["ret_log"].rolling(5).std()
-    # Familia 3: tendencia de la volatilidad (¿se acelera la agitación?)
     df["vol_cambio"] = df["vol_21d"] - df["vol_21d"].shift(10)
-    # Familia 4: distancia a la media móvil de 50 días
     df["media_50"] = df["Close"].rolling(50).mean()
     df["dist_media50"] = (df["Close"] - df["media_50"]) / df["media_50"]
-    # Familia 5: el régimen actual del HMM, como nivel numérico
     df["regimen_actual"] = df["regimen"].map(NIVEL_REGIMEN)
     return df
 
@@ -82,6 +77,8 @@ def dibujar_overlay(datos, eventos, titulo, colores=None, guardar_en=None):
     Dibuja un overlay de regímenes con acontecimientos históricos anotados.
     'datos' debe tener columnas 'Close' y 'regimen'. 'eventos' es un DataFrame
     con columnas nombre, tipo ('linea'/'banda'), inicio, fin.
+    Las bandas (crisis prolongadas) llevan su etiqueta arriba; las líneas
+    (eventos puntuales) la llevan en la zona inferior, para no solaparse.
     """
     if colores is None:
         colores = {"Calma alcista": "#2ca02c", "Normal": "#ffd92f",
@@ -96,21 +93,28 @@ def dibujar_overlay(datos, eventos, titulo, colores=None, guardar_en=None):
 
     caja = dict(boxstyle="round,pad=0.2", facecolor="white", edgecolor="none", alpha=0.8)
     ymax = datos["Close"].max()
+    ymin = datos["Close"].min()
+    # Altura para las etiquetas de bandas (arriba) y de líneas (zona inferior)
+    y_banda = ymax * 0.97
+    y_linea = ymin * 1.25
+
     for _, ev in eventos.iterrows():
         if ev["tipo"] == "linea":
+            # Evento puntual: línea vertical, etiqueta en la zona inferior
             ax.axvline(ev["inicio"], color="black", linestyle="--", linewidth=1.2, alpha=0.9, zorder=5)
-            ax.text(ev["inicio"], ymax*0.97, "  " + ev["nombre"], rotation=90,
-                    fontsize=8, va="top", ha="left", color="black", zorder=6, bbox=caja)
+            ax.text(ev["inicio"], y_linea, "  " + ev["nombre"], rotation=90,
+                    fontsize=8, va="bottom", ha="left", color="black", zorder=6, bbox=caja)
         else:
+            # Crisis prolongada: banda gris, etiqueta arriba centrada
             ax.axvspan(ev["inicio"], ev["fin"], color="dimgray", alpha=0.18, zorder=2)
             ax.axvline(ev["inicio"], color="dimgray", linestyle=":", linewidth=1, alpha=0.7, zorder=3)
             ax.axvline(ev["fin"], color="dimgray", linestyle=":", linewidth=1, alpha=0.7, zorder=3)
             centro = ev["inicio"] + (ev["fin"] - ev["inicio"]) / 2
-            ax.text(centro, ymax*0.97, ev["nombre"], rotation=0, ha="center", va="top",
+            ax.text(centro, y_banda, ev["nombre"], rotation=0, ha="center", va="top",
                     fontsize=8, color="black", zorder=6, bbox=caja)
 
     ax.set_yscale("log")
-    ax.set_ylim(datos["Close"].min()*0.9, datos["Close"].max()*1.1)
+    ax.set_ylim(datos["Close"].min()*0.85, datos["Close"].max()*1.1)
     ax.set_xlim(datos.index.min(), datos.index.max())
     ax.xaxis.set_major_locator(mdates.YearLocator(1))
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
@@ -118,7 +122,7 @@ def dibujar_overlay(datos, eventos, titulo, colores=None, guardar_en=None):
     ax.set_title(titulo, fontsize=13, pad=12)
     ax.set_ylabel("Precio de cierre (escala log)")
     ax.legend(handles=[Patch(facecolor=c, alpha=0.5, label=r) for r, c in colores.items()],
-              loc="upper left", ncol=4)
+              loc="upper center", bbox_to_anchor=(0.5, -0.12), ncol=4, frameon=True)
     plt.tight_layout()
     if guardar_en:
         plt.savefig(guardar_en, dpi=150, bbox_inches="tight")
